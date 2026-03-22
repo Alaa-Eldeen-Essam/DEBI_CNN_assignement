@@ -1,15 +1,15 @@
-# Face Mask Detector — FastAPI + Streamlit
-
+# Face Mask Detector — MobileNetV2 + FastAPI + Streamlit
+[colab notebook](https://colab.research.google.com/drive/1dTv1GSZkwF0OM8sBwFXUcaxVkzFbz04g?usp=sharing)
 ## Project Structure
 
 ```
 face-mask-app/
 ├── backend/
-│   ├── main.py               # FastAPI app (loads both .h5 models, exposes REST endpoints)
+│   ├── main.py               # FastAPI app (loads MobileNetV2, exposes REST endpoint)
 │   ├── requirements.txt
-│   └── models/               # ← place your .h5 files here
-│       ├── efficientnetb0_mask.h5
-│       └── mobilenetv2_mask.h5
+│   └── models/               # ← place your model file here
+│       └── mobilenetv2_mask.weights.h5   # weights-only file (recommended)
+│       └── mobilenetv2_mask.keras        # full model (requires matching Keras version)
 │
 ├── frontend/
 │   ├── app.py                # Streamlit UI
@@ -20,62 +20,87 @@ face-mask-app/
 
 ---
 
-## Setup & Run
+## Python & Keras Version Requirements
 
-### 1 — Place your models
-Copy the two `.h5` files from Colab into `backend/models/`.
+| Component  | Requirement                        |
+|------------|------------------------------------|
+| Python     | **3.11+** (recommended) / 3.10 ok with weights-only approach |
+| TensorFlow | 2.19.0                             |
+| Keras      | 3.13.2 (requires Python 3.11+)     |
 
-### 2 — Backend
+> The model was trained in Colab with Keras 3.13.2. Loading the full `.keras` file
+> locally requires the same Keras version, which in turn requires Python 3.11+.
+
+---
+
+## Setup
+
+### Option A — Python 3.11 (recommended, full .keras support)
+
 ```bash
+conda create -n face_mask python=3.11
+conda activate face_mask
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Swagger docs available at: http://localhost:8000/docs
+### Option B — Python 3.10 (weights-only, no environment upgrade)
 
-### 3 — Frontend (separate terminal)
+Re-save from Colab:
+```python
+mobilenet_model.save_weights('mobilenetv2_mask.weights.h5')
+files.download('mobilenetv2_mask.weights.h5')
+```
+
+Place `mobilenetv2_mask.weights.h5` in `backend/models/` and use the
+weights-only loader in `main.py` (see comments inside the file).
+
+---
+
+## Run
+
 ```bash
+# Terminal 1 — backend
+cd backend
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+# Terminal 2 — frontend
 cd frontend
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Opens at: http://localhost:8501
+- API: http://localhost:8000
+- Swagger docs: http://localhost:8000/docs
+- Streamlit UI: http://localhost:8501
 
 ---
 
 ## API Endpoints
 
-| Method | Path                    | Description                       |
-|--------|-------------------------|-----------------------------------|
-| GET    | `/health`               | Check API status & loaded models  |
-| POST   | `/predict/efficientnet` | Predict with EfficientNetB0       |
-| POST   | `/predict/mobilenet`    | Predict with MobileNetV2          |
-| POST   | `/predict/both`         | Run both models, compare results  |
+| Method | Path                    | Description                      |
+|--------|-------------------------|----------------------------------|
+| GET    | `/`                     | API status check                 |
+| GET    | `/health`               | Check model is loaded            |
+| POST   | `/predict/mobilenet`    | Predict with MobileNetV2         |
 
 All prediction endpoints accept `multipart/form-data` with a single `file` field (JPEG or PNG).
 
 ### Example with curl
 ```bash
-curl -X POST http://localhost:8000/predict/both \
+curl -X POST http://localhost:8000/predict/mobilenet \
   -F "file=@photo.jpg"
 ```
 
-### Example response (`/predict/both`)
+### Example response
 ```json
 {
-  "efficientnet": {
-    "model": "EfficientNetB0",
-    "label": "With Mask",
-    "confidence": 97.43,
-    "probability": { "With Mask": 97.43, "Without Mask": 2.57 }
-  },
-  "mobilenet": {
-    "model": "MobileNetV2",
-    "label": "With Mask",
-    "confidence": 96.11,
-    "probability": { "With Mask": 96.11, "Without Mask": 3.89 }
+  "model": "MobileNetV2",
+  "label": "With Mask",
+  "confidence": 97.43,
+  "probability": {
+    "With Mask": 97.43,
+    "Without Mask": 2.57
   }
 }
 ```
@@ -83,7 +108,8 @@ curl -X POST http://localhost:8000/predict/both \
 ---
 
 ## Notes
-- The sigmoid output of both models maps: `0 → WithMask`, `1 → WithoutMask`
-  (matches the `class_indices` order from `flow_from_directory` alphabetically).
-- Both models are loaded once on startup and kept in memory.
-- The frontend sidebar lets you switch between models and check API health without restarting.
+- The sigmoid output maps: `0 → WithMask`, `1 → WithoutMask`
+- The model is loaded once on startup and kept in memory
+- The Streamlit sidebar lets you set the API URL and run a health check
+- Labels `.txt` files in the YOLO dataset live alongside images in the same folder,
+  not in a separate `labels/` directory — copy them over before training with Ultralytics

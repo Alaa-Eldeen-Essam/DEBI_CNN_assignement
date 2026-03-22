@@ -26,31 +26,32 @@ print("Loading MobileNetV2...")
 mobilenet_model = tf.keras.models.load_model("models/mobilenetv2_mask.keras")
 
 print("Loading YOLO26...")
-yolo_model = YOLO("models/best.pt")       # swap to best.onnx if preferred
+yolo_model = YOLO("models/yolo_11_new_2.pt")  # swap to best.onnx if preferred
 # yolo_model = YOLO("models/best.onnx")
 
 print("All models ready.")
 
+
 # ── Response schemas ───────────────────────────────────────────────────────────
 class MobileNetResponse(BaseModel):
-    model:       str
-    label:       str
-    confidence:  float
+    model: str
+    label: str
+    confidence: float
     probability: dict[str, float]
 
 
 class YOLODetection(BaseModel):
-    label:      str
+    label: str
     confidence: float
-    box:        List[float]   # [x1, y1, x2, y2] in pixels
+    box: List[float]  # [x1, y1, x2, y2] in pixels
 
 
 class YOLOResponse(BaseModel):
-    model:          str
-    total:          int
-    with_mask:      int
-    without_mask:   int
-    detections:     List[YOLODetection]
+    model: str
+    total: int
+    with_mask: int
+    without_mask: int
+    detections: List[YOLODetection]
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -62,40 +63,42 @@ def preprocess_mobilenet(image_bytes: bytes) -> np.ndarray:
 
 
 def run_mobilenet(image_bytes: bytes) -> MobileNetResponse:
-    image_array       = preprocess_mobilenet(image_bytes)
+    image_array = preprocess_mobilenet(image_bytes)
     prob_without_mask = float(mobilenet_model.predict(image_array, verbose=0)[0][0])
-    prob_with_mask    = 1.0 - prob_without_mask
-    label             = "Without Mask" if prob_without_mask >= 0.5 else "With Mask"
-    confidence        = prob_without_mask if label == "Without Mask" else prob_with_mask
+    prob_with_mask = 1.0 - prob_without_mask
+    label = "Without Mask" if prob_without_mask >= 0.5 else "With Mask"
+    confidence = prob_without_mask if label == "Without Mask" else prob_with_mask
 
     return MobileNetResponse(
         model="MobileNetV2",
         label=label,
         confidence=round(confidence * 100, 2),
         probability={
-            "With Mask":    round(prob_with_mask    * 100, 2),
+            "With Mask": round(prob_with_mask * 100, 2),
             "Without Mask": round(prob_without_mask * 100, 2),
-        }
+        },
     )
 
 
 def run_yolo(image_bytes: bytes) -> YOLOResponse:
-    img     = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     results = yolo_model.predict(source=img, conf=0.25, iou=0.45, verbose=False)
 
-    detections   = []
-    with_mask    = 0
+    detections = []
+    with_mask = 0
     without_mask = 0
 
-    CLASS_MAP = {0: "With Mask", 1: "Without Mask"}   # matches training order
+    CLASS_MAP = {0: "With Mask", 1: "Without Mask"}  # matches training order
 
     for box in results[0].boxes:
         cls_id = int(box.cls[0])
-        label  = CLASS_MAP.get(cls_id, str(cls_id))
-        conf   = round(float(box.conf[0]) * 100, 2)
+        label = CLASS_MAP.get(cls_id, str(cls_id))
+        conf = round(float(box.conf[0]) * 100, 2)
         x1, y1, x2, y2 = [round(float(v), 1) for v in box.xyxy[0]]
 
-        detections.append(YOLODetection(label=label, confidence=conf, box=[x1, y1, x2, y2]))
+        detections.append(
+            YOLODetection(label=label, confidence=conf, box=[x1, y1, x2, y2])
+        )
 
         if label == "With Mask":
             with_mask += 1
@@ -120,7 +123,7 @@ def root():
 @app.get("/health")
 def health():
     return {
-        "status":        "healthy",
+        "status": "healthy",
         "models_loaded": ["MobileNetV2", "YOLO26n"],
     }
 

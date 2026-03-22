@@ -11,7 +11,8 @@ st.set_page_config(
 )
 
 # ── CSS ────────────────────────────────────────────────────────────────────────
-st.markdown("""
+st.markdown(
+    """
 <style>
     .result-box     { border-radius:10px; padding:18px 22px; margin-top:10px; font-size:15px; }
     .with-mask      { background:#e8f5e9; border-left:5px solid #43a047; color:#1b5e20; }
@@ -22,18 +23,24 @@ st.markdown("""
     .det-row        { display:flex; justify-content:space-between; padding:4px 0;
                       border-bottom:1px solid #eee; font-size:14px; }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.title("⚙️ Settings")
     api_url = st.text_input("API Base URL", value="http://localhost:8000")
 
-    model_choice = st.radio("Model", ["MobileNetV2", "YOLO26"], index=0)
+    model_choice = st.radio("Model", ["MobileNetV2", "YOLO"], index=0)
 
     st.markdown("---")
     st.markdown("**Endpoint**")
-    endpoint = f"{api_url}/predict/mobilenet" if model_choice == "MobileNetV2" else f"{api_url}/predict/yolo"
+    endpoint = (
+        f"{api_url}/predict/mobilenet"
+        if model_choice == "MobileNetV2"
+        else f"{api_url}/predict/yolo"
+    )
     st.code(endpoint)
 
     st.markdown("---")
@@ -75,7 +82,9 @@ if uploaded:
         st.subheader("Prediction")
 
         uploaded.seek(0)
-        files = {"file": (uploaded.name, uploaded.read(), uploaded.type or "image/jpeg")}
+        files = {
+            "file": (uploaded.name, uploaded.read(), uploaded.type or "image/jpeg")
+        }
 
         with st.spinner("Running inference…"):
             try:
@@ -94,46 +103,52 @@ if uploaded:
 
         # ── MobileNetV2 result ─────────────────────────────────────────────────
         if model_choice == "MobileNetV2":
-            label   = data["label"]
-            conf    = data["confidence"]
-            probs   = data["probability"]
+            label = data["label"]
+            conf = data["confidence"]
+            probs = data["probability"]
             css_cls = "with-mask" if label == "With Mask" else "without-mask"
-            icon    = "✅" if label == "With Mask" else "🚫"
+            icon = "✅" if label == "With Mask" else "🚫"
 
-            st.markdown(f"""
+            st.markdown(
+                f"""
             <div class="result-box {css_cls}">
                 <div class="model-title">MobileNetV2</div>
                 <div class="label-big">{icon} {label}</div>
                 <div class="conf-text">Confidence: <b>{conf}%</b></div>
             </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
             st.markdown("**Class probabilities**")
-            st.progress(probs["With Mask"] / 100,
-                        text=f"With Mask — {probs['With Mask']}%")
-            st.progress(probs["Without Mask"] / 100,
-                        text=f"Without Mask — {probs['Without Mask']}%")
+            st.progress(
+                probs["With Mask"] / 100, text=f"With Mask — {probs['With Mask']}%"
+            )
+            st.progress(
+                probs["Without Mask"] / 100,
+                text=f"Without Mask — {probs['Without Mask']}%",
+            )
 
         # ── YOLO result ────────────────────────────────────────────────────────
         else:
-            total        = data["total"]
-            with_mask    = data["with_mask"]
+            total = data["total"]
+            with_mask = data["with_mask"]
             without_mask = data["without_mask"]
-            detections   = data["detections"]
+            detections = data["detections"]
 
             if total == 0:
                 st.warning("⚠️ No faces detected. Try a clearer or closer image.")
             else:
                 # Summary cards
                 c1, c2, c3 = st.columns(3)
-                c1.metric("Total Faces",    total)
-                c2.metric("✅ With Mask",   with_mask)
+                c1.metric("Total Faces", total)
+                c2.metric("✅ With Mask", with_mask)
                 c3.metric("🚫 Without Mask", without_mask)
 
                 st.markdown("---")
 
                 # Draw boxes on image
-                draw  = ImageDraw.Draw(image)
+                draw = ImageDraw.Draw(image)
                 COLOR_MAP = {"With Mask": "#43a047", "Without Mask": "#e53935"}
 
                 for det in detections:
@@ -144,7 +159,7 @@ if uploaded:
                     draw.text(
                         (x1 + 3, y1 - 16),
                         f"{det['label']} {det['confidence']}%",
-                        fill="white"
+                        fill="white",
                     )
 
                 img_placeholder.image(image, use_column_width=True)
@@ -157,8 +172,8 @@ if uploaded:
                         f'<div class="det-row">'
                         f'<span>#{i+1} {icon} {det["label"]}</span>'
                         f'<span><b>{det["confidence"]}%</b></span>'
-                        f'</div>',
-                        unsafe_allow_html=True
+                        f"</div>",
+                        unsafe_allow_html=True,
                     )
 
 else:

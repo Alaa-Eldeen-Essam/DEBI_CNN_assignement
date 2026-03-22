@@ -1,5 +1,6 @@
 # Face Mask Detector — MobileNetV2 + FastAPI + Streamlit
-[colab notebook](https://colab.research.google.com/drive/1dTv1GSZkwF0OM8sBwFXUcaxVkzFbz04g?usp=sharing)
+[Mask detection using Mobilenet notebook](https://colab.research.google.com/drive/1dTv1GSZkwF0OM8sBwFXUcaxVkzFbz04g?usp=sharing)
+[Mask detector using YOLO notebook](https://colab.research.google.com/drive/1BiQw_EBlPL5y71P5ayZqEKyCcCGkOd4g?usp=sharing)
 ## Project Structure
 
 ```

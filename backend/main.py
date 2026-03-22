@@ -26,7 +26,7 @@ print("Loading MobileNetV2...")
 mobilenet_model = tf.keras.models.load_model("models/mobilenetv2_mask.keras")
 
 print("Loading YOLO26...")
-yolo_model = YOLO("models/yolo_11_new_2.pt")  # swap to best.onnx if preferred
+yolo_model = YOLO("models/yolo_11_new_3.pt")  # swap to best.onnx if preferred
 # yolo_model = YOLO("models/best.onnx")
 
 print("All models ready.")

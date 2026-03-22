@@ -1,4 +1,5 @@
 # Face Mask Detector — MobileNetV2 + FastAPI + Streamlit
+[![Python Scaffold cloud course](https://github.com/Alaa-Eldeen-Essam/DEBI_CNN_assignement/actions/workflows/main.yml/badge.svg)](https://github.com/Alaa-Eldeen-Essam/DEBI_CNN_assignement/actions/workflows/main.yml)
 [Mask detection using Mobilenet notebook](https://colab.research.google.com/drive/1dTv1GSZkwF0OM8sBwFXUcaxVkzFbz04g?usp=sharing)
 [Mask detector using YOLO notebook](https://colab.research.google.com/drive/1BiQw_EBlPL5y71P5ayZqEKyCcCGkOd4g?usp=sharing)
 ## Project Structure

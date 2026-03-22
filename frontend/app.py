@@ -1,7 +1,6 @@
-import io
 import requests
 import streamlit as st
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(

@@ -1,7 +1,7 @@
-# Face Mask Detector — MobileNetV2 + FastAPI + Streamlit
+# Face Mask Detector — MobileNetV2 + YOLO + FastAPI + Streamlit
 [![Python Scaffold cloud course](https://github.com/Alaa-Eldeen-Essam/DEBI_CNN_assignement/actions/workflows/main.yml/badge.svg)](https://github.com/Alaa-Eldeen-Essam/DEBI_CNN_assignement/actions/workflows/main.yml)
 
-This project implements a face mask detection  using a MobileNetV2-based model trained on a custom dataset. The backend is built with FastAPI, and the frontend uses Streamlit for a simple UI.
+This project implements a face mask detection  using a MobileNetV2-based/YOLO model trained on a custom dataset. The backend is built with FastAPI, and the frontend uses Streamlit for a simple UI.
 
 [Mask detection using Mobilenet notebook](https://colab.research.google.com/drive/1dTv1GSZkwF0OM8sBwFXUcaxVkzFbz04g?usp=sharing)
 

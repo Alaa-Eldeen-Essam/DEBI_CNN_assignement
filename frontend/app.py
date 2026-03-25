@@ -57,7 +57,7 @@ with st.sidebar:
                 st.json(response.json())
             else:
                 st.error(f"API returned {response.status_code}")
-        except Exception as exc:
+        except requests.exceptions.RequestException as exc:
             st.error(f"Cannot reach API:\n{exc}")
 
     st.markdown("---")
@@ -109,7 +109,7 @@ if uploaded:
             except requests.exceptions.HTTPError as exc:
                 st.error(f"API error: {exc}")
                 st.stop()
-            except Exception as exc:
+            except requests.exceptions.RequestException as exc:
                 st.error(f"Unexpected error: {exc}")
                 st.stop()
 
@@ -148,7 +148,7 @@ if uploaded:
                 except requests.exceptions.HTTPError as exc:
                     st.error(f"API error: {exc}")
                     st.stop()
-                except Exception as exc:
+                except (requests.exceptions.RequestException, ValueError) as exc:
                     st.error(f"Unexpected error: {exc}")
                     st.stop()
 

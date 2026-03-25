@@ -7,11 +7,11 @@ from typing import List
 import numpy as np
 import tensorflow as tf
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.background import BackgroundTask
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from PIL import Image
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 from ultralytics import YOLO
 
 # App setup
@@ -36,7 +36,9 @@ VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
 
 # Load models once at startup
 print("Loading MobileNetV2...")
-mobilenet_model = tf.keras.models.load_model("models/mobilenetv2_mask.keras")
+mobilenet_model = tf.keras.models.load_model(  # pylint: disable=no-member
+    "models/mobilenetv2_mask.keras"
+)
 
 print("Loading YOLO26...")
 yolo_model = YOLO("models/yolo_11_new_3.pt")  # Swap to best.onnx if preferred.

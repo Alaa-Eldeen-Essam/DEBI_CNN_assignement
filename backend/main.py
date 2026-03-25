@@ -1,16 +1,21 @@
 import io
+import shutil
+import tempfile
+from pathlib import Path
 from typing import List
 
 import numpy as np
 import tensorflow as tf
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.background import BackgroundTask
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from PIL import Image
 from pydantic import BaseModel
 from ultralytics import YOLO
 
 # App setup
-app = FastAPI(title="Face Mask Detector", version="2.0")
+app = FastAPI(title="Face Mask Detector", version="2.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,6 +25,14 @@ app.add_middleware(
 )
 
 IMG_SIZE = 224
+VIDEO_MIME_TYPES = {
+    "video/mp4",
+    "video/quicktime",
+    "video/x-msvideo",
+    "video/x-matroska",
+    "application/octet-stream",
+}
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
 
 # Load models once at startup
 print("Loading MobileNetV2...")
@@ -60,6 +73,22 @@ def preprocess_mobilenet(image_bytes: bytes) -> np.ndarray:
     img = img.resize((IMG_SIZE, IMG_SIZE))
     arr = np.array(img, dtype=np.float32) / 255.0
     return np.expand_dims(arr, axis=0)  # (1, 224, 224, 3)
+
+
+def cleanup_path(path: Path) -> None:
+    if path.exists():
+        shutil.rmtree(path, ignore_errors=True)
+
+
+def validate_image_upload(file: UploadFile) -> None:
+    if file.content_type not in ("image/jpeg", "image/png", "image/jpg"):
+        raise HTTPException(400, "Only JPEG / PNG images are supported.")
+
+
+def validate_video_upload(file: UploadFile) -> None:
+    suffix = Path(file.filename or "").suffix.lower()
+    if file.content_type not in VIDEO_MIME_TYPES and suffix not in VIDEO_EXTENSIONS:
+        raise HTTPException(400, "Only MP4, MOV, AVI, and MKV videos are supported.")
 
 
 def run_mobilenet(image_bytes: bytes) -> MobileNetResponse:
@@ -114,6 +143,36 @@ def run_yolo(image_bytes: bytes) -> YOLOResponse:
     )
 
 
+def run_yolo_video(video_bytes: bytes, filename: str) -> tuple[Path, Path]:
+    work_dir = Path(tempfile.mkdtemp(prefix="yolo_video_"))
+    input_path = work_dir / filename
+    output_dir = work_dir / "predictions"
+    output_path = output_dir / filename
+
+    input_path.write_bytes(video_bytes)
+    yolo_model.predict(
+        source=str(input_path),
+        conf=0.25,
+        iou=0.45,
+        verbose=False,
+        save=True,
+        project=str(output_dir),
+        name="",
+        exist_ok=True,
+    )
+
+    if not output_path.exists():
+        generated_files = sorted(output_dir.glob("*"))
+        if not generated_files:
+            cleanup_path(work_dir)
+            raise HTTPException(
+                500, "Video processing failed to produce an output file."
+            )
+        output_path = generated_files[0]
+
+    return work_dir, output_path
+
+
 # Routes
 @app.get("/")
 def root():
@@ -125,18 +184,31 @@ def health():
     return {
         "status": "healthy",
         "models_loaded": ["MobileNetV2", "YOLO26n"],
+        "video_inference": True,
     }
 
 
 @app.post("/predict/mobilenet", response_model=MobileNetResponse)
 async def predict_mobilenet(file: UploadFile = File(...)):
-    if file.content_type not in ("image/jpeg", "image/png", "image/jpg"):
-        raise HTTPException(400, "Only JPEG / PNG images are supported.")
+    validate_image_upload(file)
     return run_mobilenet(await file.read())
 
 
 @app.post("/predict/yolo", response_model=YOLOResponse)
 async def predict_yolo(file: UploadFile = File(...)):
-    if file.content_type not in ("image/jpeg", "image/png", "image/jpg"):
-        raise HTTPException(400, "Only JPEG / PNG images are supported.")
+    validate_image_upload(file)
     return run_yolo(await file.read())
+
+
+@app.post("/predict/yolo-video")
+async def predict_yolo_video(file: UploadFile = File(...)):
+    validate_video_upload(file)
+    filename = Path(file.filename or "mask_detection.mp4").name
+    work_dir, output_path = run_yolo_video(await file.read(), filename)
+
+    return FileResponse(
+        path=output_path,
+        media_type="video/mp4",
+        filename=f"annotated_{output_path.name}",
+        background=BackgroundTask(cleanup_path, work_dir),
+    )

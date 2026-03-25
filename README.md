@@ -1,104 +1,107 @@
-# Face Mask Detector — MobileNetV2 + YOLO + FastAPI + Streamlit
-[![Python Scaffold cloud course](https://github.com/Alaa-Eldeen-Essam/DEBI_CNN_assignement/actions/workflows/main.yml/badge.svg)](https://github.com/Alaa-Eldeen-Essam/DEBI_CNN_assignement/actions/workflows/main.yml)
+# Face Mask Detector - MobileNetV2 + YOLO + FastAPI + Streamlit
+[![CNN_Assignment_DEBI_CI/CD](https://github.com/Alaa-Eldeen-Essam/DEBI_CNN_assignement/actions/workflows/main.yml/badge.svg)](https://github.com/Alaa-Eldeen-Essam/DEBI_CNN_assignement/actions/workflows/main.yml)
 
-This project implements a face mask detection  using a MobileNetV2-based/YOLO model trained on a custom dataset. The backend is built with FastAPI, and the frontend uses Streamlit for a simple UI.
+This repository contains a face-mask detection demo with two inference paths:
 
-[Mask detection using Mobilenet notebook](https://colab.research.google.com/drive/1dTv1GSZkwF0OM8sBwFXUcaxVkzFbz04g?usp=sharing)
+- `MobileNetV2` for whole-image classification
+- `YOLO` for per-face detection with bounding boxes
 
-[Mask detector using YOLO notebook](https://colab.research.google.com/drive/1BiQw_EBlPL5y71P5ayZqEKyCcCGkOd4g?usp=sharing)
+The backend is a FastAPI service and the frontend is a Streamlit app.
+
+Related notebooks:
+- [Mask detection using MobileNet notebook](https://colab.research.google.com/drive/1dTv1GSZkwF0OM8sBwFXUcaxVkzFbz04g?usp=sharing)
+- [Mask detector using YOLO notebook](https://colab.research.google.com/drive/1BiQw_EBlPL5y71P5ayZqEKyCcCGkOd4g?usp=sharing)
+
 ## Project Structure
 
+```text
+CNN_assignement/
+|-- backend/
+|   |-- main.py
+|   `-- models/
+|       |-- best.pt
+|       |-- mobilenetv2_mask.h5
+|       |-- mobilenetv2_mask.keras
+|       |-- yolo_11_new.pt
+|       |-- yolo_11_new_2.pt
+|       `-- yolo_11_new_3.pt
+|-- frontend/
+|   `-- app.py
+|-- notebooks/
+|-- test_samples/
+|-- Makefile
+|-- README.md
+`-- requirements.txt
 ```
-face-mask-app/
-├── backend/
-│   ├── main.py               # FastAPI app (loads MobileNetV2, exposes REST endpoint)
-│   ├── requirements.txt
-│   └── models/               # ← place your model file here
-│       └── mobilenetv2_mask.weights.h5   # weights-only file (recommended)
-│       └── mobilenetv2_mask.keras        # full model (requires matching Keras version)
-│
-├── frontend/
-│   ├── app.py                # Streamlit UI
-│   └── requirements.txt
-│
-└── README.md
-```
 
----
+## Requirements
 
-## Python & Keras Version Requirements
+Recommended environment:
 
-| Component  | Requirement                        |
-|------------|------------------------------------|
-| Python     | **3.11+** (recommended) / 3.10 ok with weights-only approach |
-| TensorFlow | 2.19.0                             |
-| Keras      | 3.13.2 (requires Python 3.11+)     |
+- Python `3.11`
+- TensorFlow `2.19.0`
+- Keras `3.x`
 
-> The model was trained in Colab with Keras 3.13.2. Loading the full `.keras` file
-> locally requires the same Keras version, which in turn requires Python 3.11+.
-
----
+All committed dependencies live in the root `requirements.txt`. There are no separate `backend/requirements.txt` or `frontend/requirements.txt` files in this repo.
 
 ## Setup
 
-### Option A — Python 3.11 (recommended, full .keras support)
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+If you prefer Conda:
 
 ```bash
 conda create -n face_mask python=3.11
 conda activate face_mask
-cd backend
 pip install -r requirements.txt
 ```
-
-### Option B — Python 3.10 (weights-only, no environment upgrade)
-
-Re-save from Colab:
-```python
-mobilenet_model.save_weights('mobilenetv2_mask.weights.h5')
-files.download('mobilenetv2_mask.weights.h5')
-```
-
-Place `mobilenetv2_mask.weights.h5` in `backend/models/` and use the
-weights-only loader in `main.py` (see comments inside the file).
-
----
 
 ## Run
 
+Start the backend from the `backend` directory:
+
 ```bash
-# Terminal 1 — backend
 cd backend
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-# Terminal 2 — frontend
+Start the frontend from the `frontend` directory in a second terminal:
+
+```bash
 cd frontend
-pip install -r requirements.txt
 streamlit run app.py
 ```
 
-- API: http://localhost:8000
-- Swagger docs: http://localhost:8000/docs
-- Streamlit UI: http://localhost:8501
+Local URLs:
 
----
+- API: `http://localhost:8000`
+- Swagger docs: `http://localhost:8000/docs`
+- Streamlit UI: `http://localhost:8501`
 
 ## API Endpoints
 
-| Method | Path                    | Description                      |
-|--------|-------------------------|----------------------------------|
-| GET    | `/`                     | API status check                 |
-| GET    | `/health`               | Check model is loaded            |
-| POST   | `/predict/mobilenet`    | Predict with MobileNetV2         |
+| Method | Path                 | Description |
+|--------|----------------------|-------------|
+| GET    | `/`                  | API status check |
+| GET    | `/health`            | Check that the models are loaded |
+| POST   | `/predict/mobilenet` | Whole-image classification |
+| POST   | `/predict/yolo`      | Face detection with bounding boxes |
 
-All prediction endpoints accept `multipart/form-data` with a single `file` field (JPEG or PNG).
+Prediction endpoints accept `multipart/form-data` with a single image `file` field (`jpg`, `jpeg`, or `png`).
 
-### Example with curl
+### Example request
+
 ```bash
-curl -X POST http://localhost:8000/predict/mobilenet \
-  -F "file=@photo.jpg"
+curl -X POST http://localhost:8000/predict/mobilenet -F "file=@photo.jpg"
 ```
 
-### Example response
+### Example MobileNet response
+
 ```json
 {
   "model": "MobileNetV2",
@@ -111,11 +114,27 @@ curl -X POST http://localhost:8000/predict/mobilenet \
 }
 ```
 
----
+### Example YOLO response
+
+```json
+{
+  "model": "YOLO26n",
+  "total": 1,
+  "with_mask": 1,
+  "without_mask": 0,
+  "detections": [
+    {
+      "label": "With Mask",
+      "confidence": 96.7,
+      "box": [44.2, 18.3, 180.5, 201.7]
+    }
+  ]
+}
+```
 
 ## Notes
-- The sigmoid output maps: `0 → WithMask`, `1 → WithoutMask`
-- The model is loaded once on startup and kept in memory
-- The Streamlit sidebar lets you set the API URL and run a health check
-- Labels `.txt` files in the YOLO dataset live alongside images in the same folder,
-  not in a separate `labels/` directory — copy them over before training with Ultralytics
+
+- The MobileNet output is interpreted as `0 -> With Mask` and `1 -> Without Mask`.
+- The backend loads both models at startup and keeps them in memory.
+- The Streamlit sidebar lets you change the API base URL and check backend health.
+- YOLO model paths and inference thresholds are currently hardcoded in `backend/main.py`.

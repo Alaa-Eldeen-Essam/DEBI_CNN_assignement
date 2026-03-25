@@ -1,15 +1,15 @@
 import io
-import numpy as np
-from PIL import Image
 from typing import List
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+import numpy as np
 import tensorflow as tf
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from PIL import Image
+from pydantic import BaseModel
 from ultralytics import YOLO
 
-# ── App setup ──────────────────────────────────────────────────────────────────
+# App setup
 app = FastAPI(title="Face Mask Detector", version="2.0")
 
 app.add_middleware(
@@ -21,18 +21,18 @@ app.add_middleware(
 
 IMG_SIZE = 224
 
-# ── Load models once at startup ────────────────────────────────────────────────
+# Load models once at startup
 print("Loading MobileNetV2...")
 mobilenet_model = tf.keras.models.load_model("models/mobilenetv2_mask.keras")
 
 print("Loading YOLO26...")
-yolo_model = YOLO("models/yolo_11_new_3.pt")  # swap to best.onnx if preferred
+yolo_model = YOLO("models/yolo_11_new_3.pt")  # Swap to best.onnx if preferred.
 # yolo_model = YOLO("models/best.onnx")
 
 print("All models ready.")
 
 
-# ── Response schemas ───────────────────────────────────────────────────────────
+# Response schemas
 class MobileNetResponse(BaseModel):
     model: str
     label: str
@@ -54,7 +54,7 @@ class YOLOResponse(BaseModel):
     detections: List[YOLODetection]
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# Helpers
 def preprocess_mobilenet(image_bytes: bytes) -> np.ndarray:
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     img = img.resize((IMG_SIZE, IMG_SIZE))
@@ -88,11 +88,11 @@ def run_yolo(image_bytes: bytes) -> YOLOResponse:
     with_mask = 0
     without_mask = 0
 
-    CLASS_MAP = {0: "With Mask", 1: "Without Mask"}  # matches training order
+    class_map = {0: "With Mask", 1: "Without Mask"}
 
     for box in results[0].boxes:
         cls_id = int(box.cls[0])
-        label = CLASS_MAP.get(cls_id, str(cls_id))
+        label = class_map.get(cls_id, str(cls_id))
         conf = round(float(box.conf[0]) * 100, 2)
         x1, y1, x2, y2 = [round(float(v), 1) for v in box.xyxy[0]]
 
@@ -114,7 +114,7 @@ def run_yolo(image_bytes: bytes) -> YOLOResponse:
     )
 
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
+# Routes
 @app.get("/")
 def root():
     return {"status": "ok", "message": "Face Mask Detection API is running."}

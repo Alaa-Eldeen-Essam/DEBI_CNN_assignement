@@ -15,3 +15,6 @@ jobs:
     - name: Format code with Python black
       run: |
         make format
+    - name: Lint code with Python flake8
+      run: |
+        make lint

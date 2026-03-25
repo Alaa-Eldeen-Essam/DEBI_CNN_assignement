@@ -1,5 +1,6 @@
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 from PIL import Image, ImageDraw
 
 IMAGE_TYPES = ["jpg", "jpeg", "png"]
@@ -8,6 +9,26 @@ VIDEO_TYPES = ["mp4", "mov", "avi", "mkv"]
 
 def is_video_upload(uploaded_file) -> bool:
     return uploaded_file.name.lower().endswith(tuple(f".{ext}" for ext in VIDEO_TYPES))
+
+
+def stop_video_stream(base_api_url: str, stream_id: str) -> None:
+    try:
+        requests.post(
+            f"{base_api_url}/stream/yolo-video/{stream_id}/stop",
+            timeout=10,
+        )
+    except requests.exceptions.RequestException:
+        pass
+
+
+def clear_video_stream_state(base_api_url: str | None = None) -> None:
+    stream_id = st.session_state.get("active_video_stream_id")
+    if base_api_url and stream_id:
+        stop_video_stream(base_api_url, stream_id)
+
+    st.session_state["active_video_stream_id"] = None
+    st.session_state["active_video_stream_url"] = None
+    st.session_state["active_video_signature"] = None
 
 
 # Page config
@@ -65,11 +86,18 @@ with st.sidebar:
     if model_choice == "MobileNetV2":
         st.info("Classification supports images only.")
     else:
-        st.info("YOLO supports both images and videos.")
+        st.info("YOLO supports images and progressive video playback.")
 
 # Main
 st.title("Face Mask Detector")
 st.caption("Upload an image or a video and run inference from the sidebar model.")
+
+if "active_video_stream_id" not in st.session_state:
+    st.session_state["active_video_stream_id"] = None
+if "active_video_stream_url" not in st.session_state:
+    st.session_state["active_video_stream_url"] = None
+if "active_video_stream_signature" not in st.session_state:
+    st.session_state["active_video_stream_signature"] = None
 
 allowed_types = (
     IMAGE_TYPES if model_choice == "MobileNetV2" else IMAGE_TYPES + VIDEO_TYPES
@@ -83,44 +111,81 @@ if uploaded:
     uploaded.seek(0)
     file_bytes = uploaded.read()
     video_upload = is_video_upload(uploaded)
+    file_signature = (uploaded.name, len(file_bytes))
 
     if model_choice == "MobileNetV2" and video_upload:
         st.error("MobileNetV2 currently supports images only.")
         st.stop()
 
     if video_upload and model_choice == "YOLO":
+        if (
+            st.session_state["active_video_stream_signature"] is not None
+            and st.session_state["active_video_stream_signature"] != file_signature
+        ):
+            clear_video_stream_state(api_url)
+
         st.subheader("Video Preview")
         st.video(file_bytes)
         st.caption(uploaded.name)
 
-        files = {"file": (uploaded.name, file_bytes, uploaded.type or "video/mp4")}
+        start_col, stop_col = st.columns(2)
+        start_playback = start_col.button("Start Annotated Playback", type="primary")
+        stop_playback = stop_col.button("Stop Playback")
 
-        with st.spinner("Running YOLO on video..."):
-            try:
-                response = requests.post(
-                    f"{api_url}/predict/yolo-video",
-                    files=files,
-                    timeout=300,
-                )
-                response.raise_for_status()
-            except requests.exceptions.ConnectionError:
-                st.error("Could not connect to the API. Is the backend running?")
-                st.stop()
-            except requests.exceptions.HTTPError as exc:
-                st.error(f"API error: {exc}")
-                st.stop()
-            except requests.exceptions.RequestException as exc:
-                st.error(f"Unexpected error: {exc}")
-                st.stop()
+        if start_playback:
+            clear_video_stream_state(api_url)
+            files = {"file": (uploaded.name, file_bytes, uploaded.type or "video/mp4")}
 
-        st.subheader("Processed Video")
-        st.video(response.content)
-        st.download_button(
-            label="Download annotated video",
-            data=response.content,
-            file_name=f"annotated_{uploaded.name.rsplit('.', 1)[0]}.mp4",
-            mime="video/mp4",
-        )
+            with st.spinner("Preparing annotated playback..."):
+                try:
+                    response = requests.post(
+                        f"{api_url}/stream/yolo-video",
+                        files=files,
+                        timeout=60,
+                    )
+                    response.raise_for_status()
+                    stream_info = response.json()
+                except requests.exceptions.ConnectionError:
+                    st.error("Could not connect to the API. Is the backend running?")
+                    st.stop()
+                except requests.exceptions.HTTPError as exc:
+                    st.error(f"API error: {exc}")
+                    st.stop()
+                except (requests.exceptions.RequestException, ValueError) as exc:
+                    st.error(f"Unexpected error: {exc}")
+                    st.stop()
+
+            st.session_state["active_video_stream_id"] = stream_info["stream_id"]
+            st.session_state[
+                "active_video_stream_url"
+            ] = f"{api_url}{stream_info['stream_url']}"
+            st.session_state["active_video_stream_signature"] = file_signature
+            st.rerun()
+
+        if stop_playback:
+            clear_video_stream_state(api_url)
+            st.rerun()
+
+        if (
+            st.session_state["active_video_stream_id"]
+            and st.session_state["active_video_stream_signature"] == file_signature
+        ):
+            st.subheader("Annotated Playback")
+            components.html(
+                f"""
+                <div style="border:1px solid #d9d9d9; border-radius:12px; overflow:hidden;">
+                    <img
+                        src="{st.session_state['active_video_stream_url']}"
+                        style="display:block; width:100%; height:auto;"
+                        alt="YOLO annotated playback"
+                    />
+                </div>
+                """,
+                height=520,
+            )
+            st.caption("Playback is silent. Use Stop Playback to end the stream.")
+        else:
+            st.info("Start annotated playback to stream bounding boxes frame by frame.")
 
     else:
         col_img, col_res = st.columns([1, 1.2], gap="large")
@@ -226,4 +291,6 @@ if uploaded:
                         )
 
 else:
+    if st.session_state["active_video_stream_id"]:
+        clear_video_stream_state(api_url)
     st.info("Upload an image or video to get started.")
